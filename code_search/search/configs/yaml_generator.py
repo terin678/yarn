@@ -24,7 +24,8 @@ import argparse
 from pathlib import Path
 from typing import Optional, Union
 
-from core.group import GroupData
+from core.group import GroupData, build_group
+from search.configs.config import GroupConfig
 from search.configs.loader import auto_group_tag
 
 
@@ -56,7 +57,7 @@ def generate_search_yaml(
     if ma < 1 or na < 1:
         raise ValueError(f"shape must be positive; got {shape}")
 
-    gd = GroupData(gap_expr)
+    gd = build_group(GroupConfig(gap_expr=gap_expr))
     is_abelian = gd.is_abelian
     tag = group_tag or auto_group_tag(gap_expr)
 

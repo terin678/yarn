@@ -39,7 +39,7 @@ from core.classical_code import (
 )
 from core.dist.quantum_bposd import estimate_quantum_distances_bposd
 from core.dist.quantum_sqetch import estimate_quantum_distances_sqetch
-from core.group import GroupData
+from core.group import GroupData, build_group
 from core.quantum_code import build_quantum_code, compute_k, quantum_check_weights
 from search.configs.config import SearchConfig
 from search.configs.paths import (
@@ -81,7 +81,7 @@ def run_pairing(cfg: SearchConfig) -> dict:
             f"(only 'full_pool' for now)."
         )
 
-    gd = GroupData(cfg.group.gap_expr)
+    gd = build_group(cfg.group)
     is_abelian = gd.is_abelian
 
     pool_A = _load_classical_pool(classical_A_dir(cfg))

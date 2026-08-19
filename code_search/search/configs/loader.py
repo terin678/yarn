@@ -102,7 +102,12 @@ def from_dict(raw: dict) -> SearchConfig:
 
     group = _group_from_dict(raw["group"])
     if group.tag is None:
-        group.tag = auto_group_tag(group.gap_expr)
+        if group.gap_expr:
+            group.tag = auto_group_tag(group.gap_expr)
+        elif group.native:
+            group.tag = group.native.replace(" ", "").replace("x", "_x_")
+        else:
+            group.tag = Path(group.table).stem
 
     classical = _classical_from_dict(raw["classical"])
     ma, na = shape
@@ -187,10 +192,14 @@ def _split_top_level_args(s: str) -> list:
 
 
 def _group_from_dict(d: dict) -> GroupConfig:
-    _check_keys(d, {"gap_expr", "tag"}, where="group")
-    if "gap_expr" not in d:
-        raise ValueError("group config missing 'gap_expr'")
-    return GroupConfig(gap_expr=d["gap_expr"], tag=d.get("tag"))
+    _check_keys(d, {"gap_expr", "tag", "native", "table"}, where="group")
+    sources = [k for k in ("gap_expr", "native", "table") if d.get(k)]
+    if len(sources) != 1:
+        raise ValueError(
+            f"group config must set exactly one of gap_expr/native/table; "
+            f"got {sources or 'none'}")
+    return GroupConfig(gap_expr=d.get("gap_expr"), tag=d.get("tag"),
+                       native=d.get("native"), table=d.get("table"))
 
 
 def _classical_from_dict(d: dict) -> ClassicalStageConfig:

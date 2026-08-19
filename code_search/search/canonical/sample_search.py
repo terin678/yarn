@@ -42,7 +42,7 @@ from typing import Callable, List, Optional, Tuple
 import numpy as np
 
 from core.f2_fast import screen_basis
-from core.group import GroupData, canonicalize
+from core.group import GroupData, build_group, canonicalize
 from core.quantum_code import build_Hx, build_Hz
 from search.canonical.build import (
     NotSingleOrbit,
@@ -405,7 +405,7 @@ def run_group_sweep(
                                    without reaching ``max_pass``.
     """
     if gd is None:
-        gd = GroupData(group.gap_expr)
+        gd = build_group(group)
     out_dir = Path(out_dir)
     rng = np.random.default_rng(params.seed)
     glog = (lambda m: log(f"[{group.tag} |G|={gd.n}] {m}")) if log else None
@@ -538,7 +538,7 @@ def run_group_sweep_streaming(
     the *other* side's screen (no pairs are possible), so skips cost one side, not
     two. Identical verdict vocabulary to :func:`run_group_sweep`."""
     if gd is None:
-        gd = GroupData(group.gap_expr)
+        gd = build_group(group)
     out_dir = Path(out_dir)
     rng = np.random.default_rng(params.seed)
     glog = (lambda m: log(f"[{group.tag} |G|={gd.n}] {m}")) if log else None
