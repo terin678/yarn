@@ -13,6 +13,7 @@ Default out_dir is tests/fixtures/groups/ next to this script's package.
 """
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -20,6 +21,11 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
+
+# Override to run gap through a wrapper, e.g. GAP_CMD="wsl gap" on Windows
+# with GAP installed in WSL. The .g program is written to the current
+# directory so a wrapped gap sees it through the shared working directory.
+GAP_CMD = os.environ.get("GAP_CMD", "gap").split()
 
 # perm-group constructors give clean cycle-notation element strings
 SPECS = [
@@ -29,6 +35,7 @@ SPECS = [
 ]
 
 GAP_PROGRAM = """
+SetPrintFormattingStatus("*stdout*", false);;
 G := {gap_expr};;
 els := Elements(G);;
 n := Size(G);;
@@ -64,12 +71,12 @@ QUIT;
 
 def mint(gap_expr: str) -> dict:
     with tempfile.NamedTemporaryFile(
-            "w", suffix=".g", delete=False, encoding="utf-8") as f:
+            "w", suffix=".g", dir=".", delete=False, encoding="utf-8") as f:
         f.write(GAP_PROGRAM.format(gap_expr=gap_expr))
-        path = f.name
-    out = subprocess.run(["gap", "-q", "--norepl", path],
+        path = Path(f.name)
+    out = subprocess.run(GAP_CMD + ["-q", "--norepl", path.name],
                          capture_output=True, text=True, timeout=300)
-    Path(path).unlink()
+    path.unlink()
     m = re.search(r"BEGIN_JSON\s*(.*?)\s*END_JSON", out.stdout, re.S)
     if not m:
         raise RuntimeError(
