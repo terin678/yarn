@@ -45,6 +45,12 @@ class DistanceResult:
         n: Number of physical qubits.
         k_null: Rank of the null space of ``H_check``.
         k_sub: Sketch dimension actually used.
+        trace: When requested, a tuple of (trials_done, batch_best,
+            running_best) triples, one per completed batch. None unless
+            ``record_trace=True``. Traces are a function of (seed,
+            batch_size) jointly: batch seeds derive from
+            ``seed + trials_done``, so a different batch_size explores a
+            different trial sequence.
     """
 
     best_weight: Optional[int]
@@ -55,6 +61,7 @@ class DistanceResult:
     n: int
     k_null: int
     k_sub: int
+    trace: Optional[tuple] = None
 
 
 def _get_module():
@@ -139,6 +146,7 @@ def estimate_distance(
     k_sub: int = 64,
     batch_size: int = 50_000,
     seed: Optional[int] = None,
+    record_trace: bool = False,
     device: int = 0,
 ) -> DistanceResult:
     """Estimate the minimum logical-coset weight of a CSS code on the GPU.
@@ -200,6 +208,7 @@ def estimate_distance(
             n=n,
             k_null=0,
             k_sub=0,
+            trace=() if record_trace else None,
         )
 
     k_sub_eff = min(k_sub, k_null)
@@ -225,6 +234,7 @@ def estimate_distance(
     trials_done = 0
     found_any = False
     d_target_int = d_target if d_target is not None else -1
+    trace: Optional[list] = [] if record_trace else None
 
     t0 = time.perf_counter()
     while trials_done < num_trials:
@@ -241,6 +251,8 @@ def estimate_distance(
         if batch_best < best:
             best = batch_best
         trials_done += B
+        if trace is not None:
+            trace.append((trials_done, batch_best, best))
 
         if found:
             found_any = True
@@ -261,4 +273,5 @@ def estimate_distance(
         n=int(n),
         k_null=int(k_null),
         k_sub=int(k_sub_eff),
+        trace=tuple(trace) if trace is not None else None,
     )
