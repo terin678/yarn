@@ -76,7 +76,10 @@ def _get_module():
     cuda_src = _KERNEL_PATH.read_text()
     cpp_src = "// sqetch kernel binding\n"
 
-    build_dir = os.path.join("/tmp", "sqetch_ext" + build_dir_suffix())
+    # tempfile, not a hardcoded /tmp: on Windows "/tmp" resolves against
+    # the current drive and may not be writable or stable.
+    import tempfile
+    build_dir = os.path.join(tempfile.gettempdir(), "sqetch_ext" + build_dir_suffix())
     os.makedirs(build_dir, exist_ok=True)
 
     try:
@@ -84,7 +87,12 @@ def _get_module():
             name="sqetch_ext",
             cpp_sources=[cpp_src],
             cuda_sources=[cuda_src],
-            extra_cuda_cflags=["-O3", arch_flag(), "--use_fast_math"],
+            extra_cuda_cflags=["-O3", arch_flag(), "--use_fast_math"]
+            + (
+                # CUDA 12.4+ cccl headers reject MSVC's traditional
+                # preprocessor; cl needs the standard-conforming one.
+                ["-Xcompiler", "/Zc:preprocessor"] if os.name == "nt" else []
+            ),
             build_directory=build_dir,
             verbose=False,
         )
