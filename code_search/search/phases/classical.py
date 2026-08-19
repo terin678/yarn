@@ -30,7 +30,7 @@ from core.classical_code import (
 )
 from core.dist.classical import estimate_classical_distance
 from core.f2 import f2_rank
-from core.group import GroupData
+from core.group import GroupData, build_group
 from search.configs.config import SearchConfig
 from search.configs.paths import (
     classical_A_dir,
@@ -71,7 +71,7 @@ def run_classical(cfg: SearchConfig) -> dict:
         ValueError: missing required fields for the resolved branch
             (e.g. abelian search without ``weight_pattern``).
     """
-    gd = GroupData(cfg.group.gap_expr)
+    gd = build_group(cfg.group)
     if gd.is_abelian:
         return _run_abelian(cfg, gd)
     return _run_non_abelian(cfg, gd)

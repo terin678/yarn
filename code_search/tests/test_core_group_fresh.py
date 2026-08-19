@@ -21,7 +21,7 @@ from math import lcm
 
 import numpy as np
 import pytest
-from gappy import gap
+gap = pytest.importorskip("gappy").gap
 
 from core.group import (
     GroupData,

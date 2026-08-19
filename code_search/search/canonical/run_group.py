@@ -26,7 +26,7 @@ from core.dist.classical import estimate_classical_distance_sqetch
 from core.dist.quantum_bposd import estimate_quantum_distances_bposd
 from core.dist.quantum_sqetch import estimate_quantum_distances_sqetch
 from core.f2_fast import screen_basis
-from core.group import GroupData, canonicalize
+from core.group import GroupData, build_group, canonicalize
 from core.quantum_code import build_Hx, build_Hz, quantum_check_weights
 from search.canonical.build import (
     NotSingleOrbit,
@@ -367,7 +367,7 @@ def run_group(
     built from ``group.gap_expr`` (requires GAP).
     """
     if gd is None:
-        gd = GroupData(group.gap_expr)
+        gd = build_group(group)
     out_dir = Path(out_dir)
 
     pool = build_full_rank_block_pool_brute(gd, params.anchor_weight,
@@ -459,7 +459,7 @@ def run_group_streaming(group: GroupSpec, params: ScreenParams, out_dir,
     pools full (``max_A_pool``×``max_B_pool``), or the scan cap.
     """
     if gd is None:
-        gd = GroupData(group.gap_expr)
+        gd = build_group(group)
     out_dir = Path(out_dir)
     pool = build_full_rank_block_pool_brute(gd, params.anchor_weight,
                                             force_identity=True)

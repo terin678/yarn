@@ -32,10 +32,18 @@ from typing import List, Optional, Tuple
 
 @dataclass
 class GroupConfig:
-    """Group identification."""
+    """Group identification.
 
-    gap_expr: str
-    tag: Optional[str] = None   # auto-derived from gap_expr if None
+    Exactly one of ``gap_expr`` (GAP path, requires gappy), ``native``
+    (spec string such as ``"C10"``/``"S3"``/``"D8"``/``"C2xC3"``), or
+    ``table`` (path to a minted npz) selects the group source;
+    :func:`core.group.build_group` resolves it.
+    """
+
+    gap_expr: Optional[str] = None
+    tag: Optional[str] = None   # auto-derived from the source if None
+    native: Optional[str] = None
+    table: Optional[str] = None
 
 
 @dataclass

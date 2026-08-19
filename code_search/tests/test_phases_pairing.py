@@ -52,12 +52,12 @@ def _ring_matrix_for_s3() -> tuple:
     Built via the pool sampler to guarantee the canonical form. Returns
     (M, W) where W is the weight matrix.
     """
-    from core.group import GroupData
+    from core.native_groups import symmetric
     from search.sampling._shared.full_rank_block_pool import (
         build_full_rank_block_pool,
         sample_A_from_pool,
     )
-    gd = GroupData("SymmetricGroup(3)")
+    gd = symmetric(3)
     pool = build_full_rank_block_pool(
         gd, weight=5, max_pool_size=4, max_tries=500, seed=0,
     )
@@ -92,7 +92,7 @@ def _seed_classical_pool(cfg: SearchConfig, gap_expr: str, group_tag: str,
 
 
 def _cfg(tmp_path: Path, *,
-         gap_expr: str = "SymmetricGroup(3)",
+         native: str = "S3",
          tag: str = "S3",
          pair_mode: str = "full_pool",
          max_pairs=None,
@@ -100,7 +100,7 @@ def _cfg(tmp_path: Path, *,
          enabled_sqetch: bool = False) -> SearchConfig:
     return SearchConfig(
         shape=(1, 2),
-        group=GroupConfig(gap_expr=gap_expr, tag=tag),
+        group=GroupConfig(native=native, tag=tag),
         run_stages=["pairing"],
         classical=ClassicalStageConfig(
             weight_A=[[2, 5]], weight_B=[[2, 5]],
