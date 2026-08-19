@@ -44,10 +44,10 @@ class TestQuantumCheckWeights:
 
     def test_consistency_with_actual_Hx_Hz(self):
         """End-to-end: derived check weights equal actual Hx/Hz max row weight."""
-        from core.group import GroupData
+        from core.native_groups import cyclic
         from core.quantum_code import build_Hx, build_Hz
 
-        gd = GroupData("CyclicGroup(4)")
+        gd = cyclic(4)
         A = [[(0, 1), (2,)]]
         B = [[(0, 1, 2), (1, 3)]]
         Hx = build_Hx(A, B, gd)
@@ -65,11 +65,13 @@ class TestWeightDistanceBound:
 
     @pytest.fixture(scope="class")
     def gd_c4(self):
+        pytest.importorskip("gappy")
         from core.group import GroupData
         return GroupData("CyclicGroup(4)")
 
     @pytest.fixture(scope="class")
     def gd_s3(self):
+        pytest.importorskip("gappy")
         from core.group import GroupData
         return GroupData("SymmetricGroup(3)")
 
