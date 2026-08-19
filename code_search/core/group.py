@@ -29,7 +29,13 @@ from math import prod as _prod
 from typing import Iterable, Optional, Sequence
 
 import numpy as np
-from gappy import gap
+
+
+def _get_gap():
+    """Import gappy on first use so table-backed construction works on
+    platforms without GAP; only the gap_expr path requires it."""
+    from gappy import gap
+    return gap
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -105,6 +111,7 @@ class GroupData:
         """Heavy construction body. Split out from __init__ so the caller can
         wrap it in try/except for cleanup-on-error discipline. Operates entirely
         on self; raises propagate up to __init__."""
+        gap = _get_gap()
         gap.eval(f"{self._G_var} := {gap_expr};")
         gap.eval(f"{self._elems_var} := Elements({self._G_var});")
 
@@ -189,6 +196,7 @@ class GroupData:
     def _cleanup_gap_state(self):
         """Unbind this instance's GAP variables. Idempotent; recursively
         cleans up factors first."""
+        gap = _get_gap()
         if self.factors is not None:
             for f in self.factors:
                 f._cleanup_gap_state()
@@ -208,6 +216,7 @@ class GroupData:
         recorded in self._gap_temp_vars for cleanup), or None if no usable
         decomposition exists.
         """
+        gap = _get_gap()
         if not bool(gap.eval(f"HasDirectProductInfo({self._G_var})")):
             return None
         num_factors = int(gap.eval(
@@ -243,6 +252,7 @@ class GroupData:
         _cleanup_gap_state to release this instance's GAP state plus any
         partially-built factors recorded in self.factors.
         """
+        gap = _get_gap()
         # Build factors incrementally so a mid-list failure leaves the
         # successfully-built ones reachable via self.factors for cleanup.
         # `_cleanup=False` keeps each factor's GAP state alive for the
@@ -355,6 +365,105 @@ class GroupData:
                     f"({self.elem_strs[g_idx]}): L_G[g] != "
                     f"P · (⊗ L_factor_i[g_i]) · Pᵀ."
                 )
+
+    # ─── table-backed construction (no GAP) ────────────────────────
+
+    @classmethod
+    def from_tables(cls, elem_strs: Sequence[str], mult: Sequence[Sequence[int]],
+                    inv: Sequence[int], *, gap_expr: Optional[str] = None,
+                    structure: Optional[str] = None, factors: Optional[list] = None,
+                    decompose_table: Optional[list] = None,
+                    compose_table: Optional[dict] = None,
+                    kron_perm: Optional[list] = None) -> "GroupData":
+        """Build a GroupData from explicit tables with no GAP involvement.
+
+        Validates the tables (identity at index 0, Latin-square rows/columns,
+        two-sided inverses) and derives everything downstream code reads:
+        is_abelian, the derived subgroup and its cosets. When kron data is
+        supplied, the same binary-level factorization check used on the GAP
+        path runs. Bypasses __init__ so no GAP variables are ever created.
+        """
+        self = cls.__new__(cls)
+        n = len(elem_strs)
+        mult = [list(map(int, row)) for row in mult]
+        inv = list(map(int, inv))
+        if len(mult) != n or any(len(row) != n for row in mult):
+            raise ValueError(f"mult must be {n}x{n} to match elem_strs")
+        if len(inv) != n:
+            raise ValueError(f"inv must have length {n}")
+        for i in range(n):
+            if sorted(mult[i]) != list(range(n)):
+                raise ValueError(f"mult row {i} is not a permutation of 0..{n-1}")
+            if sorted(mult[j][i] for j in range(n)) != list(range(n)):
+                raise ValueError(f"mult column {i} is not a permutation of 0..{n-1}")
+        if any(mult[0][i] != i or mult[i][0] != i for i in range(n)):
+            raise ValueError(
+                "identity must sit at index 0 (mult[0][i] == mult[i][0] == i); "
+                "reorder the tables so the identity element comes first")
+        if sorted(inv) != list(range(n)) or any(
+                mult[g][inv[g]] != 0 or mult[inv[g]][g] != 0 for g in range(n)):
+            raise ValueError("inv is not a two-sided inverse table for mult")
+
+        self.n = n
+        self.gap_expr = gap_expr
+        self.structure = structure
+        self.elem_strs = list(map(str, elem_strs))
+        self.mult = mult
+        self.inv = inv
+        self.identity = 0
+        self.is_abelian = all(mult[i][j] == mult[j][i]
+                              for i in range(n) for j in range(n))
+
+        # derived subgroup: closure of all commutators under multiplication
+        comm = {mult[mult[inv[a]][inv[b]]][mult[a][b]]
+                for a in range(n) for b in range(n)}
+        frontier = list(comm)
+        while frontier:
+            g = frontier.pop()
+            for h in list(comm):
+                for prod_idx in (mult[g][h], mult[h][g]):
+                    if prod_idx not in comm:
+                        comm.add(prod_idx)
+                        frontier.append(prod_idx)
+        self.commutator = frozenset(comm)
+        self.commutator_order = len(comm)
+        self.abelianization_order = n // len(comm)
+
+        # same convention as the GAP path: coset_id[g] is the minimum
+        # element index of g's left coset of [G,G]
+        coset_id = [-1] * n
+        for g in range(n):
+            if coset_id[g] == -1:
+                coset = [mult[g][c] for c in self.commutator]
+                rep = min(coset)
+                for h in coset:
+                    coset_id[h] = rep
+        self.coset_id = coset_id
+
+        self.factors = factors
+        self.decompose_table = decompose_table
+        self.compose_table = compose_table
+        self.kron_perm = kron_perm
+        self._gap_temp_vars = []
+        if kron_perm is not None and factors is not None:
+            self._verify_kron_factorization()
+        return self
+
+    @classmethod
+    def from_npz(cls, path) -> "GroupData":
+        """Load a GroupData minted to npz (elem_strs, mult, inv, provenance)."""
+        data = np.load(path, allow_pickle=False)
+        for field in ("elem_strs", "mult", "inv"):
+            if field not in data:
+                raise ValueError(f"{path}: npz missing required field {field!r}")
+        prov = {}
+        if "provenance" in data:
+            import json as _json
+            prov = _json.loads(str(data["provenance"]))
+        return cls.from_tables(
+            [str(s) for s in data["elem_strs"]],
+            data["mult"].tolist(), data["inv"].tolist(),
+            gap_expr=prov.get("gap_expr"), structure=prov.get("structure"))
 
     def decompose(self, g_index: int) -> tuple:
         """Return the factor-index tuple for a 0-based element index in G.
@@ -566,3 +675,32 @@ def right_rep(x: Iterable[int], gd: GroupData) -> np.ndarray:
             k = gd.mult[h][ginv]   # k = h·g⁻¹
             M[k, h] ^= 1
     return M
+
+
+# ─────────────────────────────────────────────────────────────────
+# 4. Group resolution from config
+# ─────────────────────────────────────────────────────────────────
+
+
+def build_group(group_cfg) -> GroupData:
+    """Resolve a group config object to a GroupData.
+
+    Reads three optional attributes off the config: ``gap_expr`` (legacy GAP
+    path, requires gappy), ``table`` (path to a minted npz), and ``native``
+    (a spec string like ``"C10"``, ``"S3"``, ``"D8"``, or ``"C2xC3"``).
+    Exactly one must be set. The gap_expr path is byte-for-byte the old
+    ``GroupData(gap_expr)`` call.
+    """
+    sources = {name: getattr(group_cfg, name, None)
+               for name in ("gap_expr", "native", "table")}
+    set_names = [name for name, val in sources.items() if val]
+    if len(set_names) != 1:
+        raise ValueError(
+            f"group config must set exactly one of gap_expr/native/table; "
+            f"got {set_names or 'none'}")
+    if sources["gap_expr"]:
+        return GroupData(sources["gap_expr"])
+    if sources["table"]:
+        return GroupData.from_npz(sources["table"])
+    from .native_groups import build_native
+    return build_native(sources["native"])
