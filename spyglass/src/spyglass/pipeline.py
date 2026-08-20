@@ -34,11 +34,37 @@ class DecodeResult:
 
 def default_stages(*, device: str = "auto", seed: Optional[int] = None,
                    endgame_time_limit_s: float = 10.0) -> list:
-    """The standard stage stack. Lands with the pipeline-wiring change;
-    until then the driver accepts an explicit ``stages`` list."""
-    raise NotImplementedError(
-        "default_stages ships with the pipeline wiring; pass stages "
-        "explicitly for now")
+    """The standard stack: batched BP, the relay ensemble, then the
+    optional serial-BP and exact-endgame backstops when their backends
+    are importable. ``device="auto"`` picks CUDA when available."""
+    from .bp import BatchBpStage
+    from .relay import RelayBpStage
+
+    if device == "auto":
+        try:
+            import torch
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        except ImportError:
+            device = "cpu"
+
+    stages: list = [
+        BatchBpStage(max_iter=200, device=device),
+        RelayBpStage(num_legs=12, leg_max_iter=30, seed=seed,
+                     device=device),
+    ]
+    try:
+        from .cpu_stage import SerialBpStage
+        import ldpc  # noqa: F401
+        stages.append(SerialBpStage(max_iter=200))
+    except ImportError:
+        pass
+    try:
+        from .endgame import CpSatEndgame
+        from ortools.sat.python import cp_model  # noqa: F401
+        stages.append(CpSatEndgame(time_limit_s=endgame_time_limit_s))
+    except ImportError:
+        pass
+    return stages
 
 
 class TelescopingDecoder:

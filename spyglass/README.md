@@ -53,16 +53,20 @@ pipeline never crashes because a backend is absent.
 
 ```python
 import numpy as np
-from spyglass import TelescopingDecoder, code_capacity_problem
+from spyglass import TelescopingDecoder
 from spyglass.noise import sample_code_capacity
 
 Hx = np.load(".../processor_codes/mitten/[[150,30,10]]/Hx.npy")
 errors, syndromes = sample_code_capacity(Hx, 0.01, shots=10_000,
                                          rng=np.random.default_rng(1))
-dec = TelescopingDecoder(Hx, np.full(Hx.shape[1], 0.01))
+dec = TelescopingDecoder(Hx, np.full(Hx.shape[1], 0.01), seed=1)
 result = dec.decode_batch(syndromes)
 # result.corrections, result.converged, result.stage, result.telemetry
 ```
+
+`examples/quickstart.py` runs both CSS directions of a shipped processor
+code and prints the per-stage telemetry, which is the telescoping shape
+itself: each stage sees fewer shots than the one before.
 
 ## Tests
 
