@@ -37,6 +37,7 @@ class BpResult:
     iterations: np.ndarray   # (B,) int32, iterations to convergence (or max)
     posteriors: np.ndarray   # (B, n) float64 total LLR snapshot
     state_c2v: Optional[np.ndarray] = None  # (B, m, max_cd) when requested
+    state_llr_prev: Optional[np.ndarray] = None  # (B, n) when requested
 
 
 def _torch():
@@ -51,7 +52,7 @@ def _torch():
 
 def bp_decode_batch(problem: DecodingProblem, syndromes: np.ndarray, *,
                     max_iter: int = 200, ms_scale: float = 0.625,
-                    gamma: float = 0.0,
+                    gamma=0.0,
                     llr_prev_init: Optional[np.ndarray] = None,
                     device: str = "cpu",
                     return_state: bool = False) -> BpResult:
@@ -62,9 +63,9 @@ def bp_decode_batch(problem: DecodingProblem, syndromes: np.ndarray, *,
         syndromes: ``(B, m)`` binary.
         max_iter: iteration cap.
         ms_scale: min-sum scaling factor.
-        gamma: memory strength; ``0`` is plain BP. A scalar here; the
-            relay stage passes per-variable tensors through
-            ``llr_prev_init`` and its own gamma handling.
+        gamma: memory strength; ``0`` is plain BP. A scalar, or a
+            ``(B, n)`` array of per-shot per-variable strengths (the
+            relay stage's randomized draws).
         llr_prev_init: optional ``(B, n)`` starting memory (defaults to
             the channel LLRs, which makes the first iteration identical
             to memoryless BP).
@@ -94,6 +95,13 @@ def bp_decode_batch(problem: DecodingProblem, syndromes: np.ndarray, *,
     chk_real = chk_nbrs < n                          # (m, max_cd) bool
     llr0 = torch.as_tensor(problem.llr0, dtype=dt, device=dev)  # (n,)
     syn = torch.as_tensor(syndromes, dtype=torch.long, device=dev)  # (B, m)
+
+    if not np.isscalar(gamma):
+        gamma = torch.as_tensor(np.asarray(gamma), dtype=dt, device=dev)
+        if gamma.shape != (B, n):
+            raise ValueError(
+                f"array gamma must have shape ({B}, {n}); got "
+                f"{tuple(gamma.shape)}")
 
     c2v = torch.zeros((B, m, max_cd), dtype=dt, device=dev)
     llr_prev = (torch.as_tensor(llr_prev_init, dtype=dt, device=dev)
@@ -188,7 +196,8 @@ def bp_decode_batch(problem: DecodingProblem, syndromes: np.ndarray, *,
         converged=converged.cpu().numpy(),
         iterations=iters.cpu().numpy(),
         posteriors=post_final.cpu().numpy().astype(np.float64),
-        state_c2v=(c2v.cpu().numpy() if return_state else None))
+        state_c2v=(c2v.cpu().numpy() if return_state else None),
+        state_llr_prev=(llr_prev.cpu().numpy() if return_state else None))
 
 
 class BatchBpStage:
