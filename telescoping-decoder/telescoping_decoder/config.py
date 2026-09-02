@@ -28,9 +28,18 @@ the init-detector family first via ``init_dets_only``).
 from __future__ import annotations
 
 import dataclasses
+import multiprocessing
 from types import SimpleNamespace
 
 _SYSTEMS = ("auto", "gari", "original", "init_dets")
+
+
+def _default_start_method() -> str:
+    """forkserver where the platform offers it (keeps CUDA state out of
+    the S3 workers); spawn elsewhere, e.g. Windows."""
+    if "forkserver" in multiprocessing.get_all_start_methods():
+        return "forkserver"
+    return "spawn"
 
 # ---------------------------------------------------------------------------
 # S1 operating points, one per decode system.
@@ -179,7 +188,7 @@ class S3Config:
     enabled: bool = True
     system: str = "auto"
     n_procs: int | None = None            # None -> os.cpu_count()
-    mp_start_method: str = "forkserver"   # safe alongside a CUDA parent
+    mp_start_method: str = _default_start_method()   # safe alongside a CUDA parent
 
     # S3-A
     a_variants: tuple = DEFAULT_S3A_VARIANTS
