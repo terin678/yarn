@@ -18,7 +18,7 @@ PKG = Path(__file__).resolve().parent.parent / "telescoping_decoder"
 
 def _cfg_reads(module_name: str) -> set:
     """Every attribute read off a `cfg` object in the given module."""
-    src = (PKG / module_name).read_text()
+    src = (PKG / module_name).read_text(encoding="utf-8")
     attrs = set(re.findall(r"\bcfg(?:_obj)?\.([A-Za-z_][A-Za-z0-9_]*)", src))
     # getattr(cfg, "name", default) reads too
     attrs |= set(re.findall(
@@ -98,6 +98,14 @@ def test_default_system_keeps_its_own_knobs():
     s1 = TelescopeConfig().s1
     out, note = s1_config_for(s1, DEFAULT_S1_SYSTEM)
     assert note is None and out is s1
+
+
+def test_s3_start_method_exists_on_this_platform():
+    """The pool is created with cfg.s3.mp_start_method; the default must
+    be a start method this interpreter actually offers."""
+    import multiprocessing
+    assert (TelescopeConfig().s3.mp_start_method
+            in multiprocessing.get_all_start_methods())
 
 
 def test_invalid_system_rejected():

@@ -41,7 +41,7 @@ _UNRUNNABLE = ("circuit", "model.dem", "stem_gari_matrices.npz",
 
 
 def _python_blocks(path: Path):
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     return [(path.name, i, block) for i, block in
             enumerate(re.findall(r"```python\n(.*?)```", text, re.DOTALL))]
 
@@ -71,7 +71,7 @@ def test_runnable_doc_snippet_executes(name, index, source):
 
 
 def test_readme_documents_the_shipped_s1_knobs():
-    text = README.read_text()
+    text = README.read_text(encoding="utf-8")
     row = S1_PRESETS[DEFAULT_S1_SYSTEM]
     for field in ("k", "n_iters", "hybrid_sp_iters"):
         assert f"`{field}={row[field]}`" in text, (
@@ -80,14 +80,14 @@ def test_readme_documents_the_shipped_s1_knobs():
 
 def test_readme_sizing_table_covers_the_default_batches():
     """The sizing advice must mention the knobs it is advising about."""
-    text = README.read_text()
+    text = README.read_text(encoding="utf-8")
     for knob in ("s1.shots_per_batch", "s2.batch_size"):
         assert knob in text
 
 
 def test_readme_documents_the_npz_schema():
     """Every key consumed by the original and GARI loaders is documented."""
-    text = README.read_text()
+    text = README.read_text(encoding="utf-8")
     required = (
         "h_data", "h_indices", "h_indptr", "h_shape",
         "l_data", "l_indices", "l_indptr", "l_shape",
@@ -103,7 +103,7 @@ def test_readme_documents_the_npz_schema():
 
 
 def test_readme_documents_the_own_circuit_contract():
-    text = README.read_text()
+    text = README.read_text(encoding="utf-8")
     required = (
         "## Using your own Stim circuit",
         "examples/toy_xz_surface_code_memory.stim",
@@ -119,12 +119,12 @@ def test_readme_documents_the_own_circuit_contract():
 
 
 def test_s4_is_a_core_dependency():
-    metadata = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     dependencies = metadata["project"]["dependencies"]
     extras = metadata["project"].get("optional-dependencies", {})
     assert any(dep.startswith("gurobipy") for dep in dependencies)
     assert "ip" not in extras
-    assert "[ip]" not in README.read_text()
+    assert "[ip]" not in README.read_text(encoding="utf-8")
 
 
 def test_runnable_circuit_example_files_exist_and_compile():
@@ -132,11 +132,11 @@ def test_runnable_circuit_example_files_exist_and_compile():
     script = ROOT / "examples" / "from_stim_circuit.py"
     assert circuit.is_file()
     assert script.is_file()
-    compile(script.read_text(), str(script), "exec")
+    compile(script.read_text(encoding="utf-8"), str(script), "exec")
 
 
 def test_readme_kernel_directory_links_resolve():
-    text = README.read_text()
+    text = README.read_text(encoding="utf-8")
     for target in ("telescoping_decoder/kernels/", "telescoping_decoder/_c/"):
         assert f"]({target})" in text
         assert (ROOT / target).is_dir()
@@ -145,7 +145,7 @@ def test_readme_kernel_directory_links_resolve():
 @pytest.mark.parametrize("path", [README, KERNELS_MD], ids=["README", "kernels"])
 def test_internal_links_resolve(path):
     """All local Markdown anchors must resolve."""
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     slugs = {re.sub(r"[^a-z0-9 -]", "", h.lower()).replace(" ", "-")
              for h in re.findall(r"^#{1,6} (.+)$", text, re.MULTILINE)}
     targets = re.findall(r"\]\(#([a-z0-9-]+)\)", text)
@@ -155,7 +155,7 @@ def test_internal_links_resolve(path):
 
 def test_html_s1_table_matches_config_defaults():
     """The deep-dive's §5f table must be the literal S1Config defaults."""
-    html = DECODER_HTML.read_text()
+    html = DECODER_HTML.read_text(encoding="utf-8")
     section = html[html.index('id="s1-cfg"'):]
     section = section[:section.index("</table>")]
     documented = dict(re.findall(
@@ -167,14 +167,14 @@ def test_html_s1_table_matches_config_defaults():
 
 def test_html_does_not_cite_code_outside_this_repo():
     """The guide must not refer to source outside this repository."""
-    html = DECODER_HTML.read_text().lower()
+    html = DECODER_HTML.read_text(encoding="utf-8").lower()
     for token in ("c10s3", "ldpc-decoding", "probe script"):
         assert token not in html, f"{token!r} refers to code not in this repo"
 
 
 def test_html_explainer_omits_benchmark_results():
     """The explainer documents code, not one machine or experiment."""
-    html = DECODER_HTML.read_text()
+    html = DECODER_HTML.read_text(encoding="utf-8")
     prose = html[:html.index("<!-- DECODER_SOURCE_DATA_START -->")].lower()
     for token in ("benchmark", "h100", "rtx 500 ada", "shots/s",
                   "historical profile"):
@@ -183,7 +183,7 @@ def test_html_explainer_omits_benchmark_results():
 
 def test_html_embedded_source_regions_are_current():
     """The scroll-linked guide must point into the source that actually ships."""
-    html = DECODER_HTML.read_text()
+    html = DECODER_HTML.read_text(encoding="utf-8")
     match = re.search(
         r'<script id="decoder-source-data" type="application/json">'
         r'(.*?)</script>', html, re.DOTALL)
@@ -201,7 +201,7 @@ def test_html_embedded_source_regions_are_current():
     for source_id, path in expected_paths.items():
         source = payload["sources"][source_id]
         assert source["path"] == path
-        assert source["text"] == (ROOT / path).read_text(), (
+        assert source["text"] == (ROOT / path).read_text(encoding="utf-8"), (
             f"embedded {source_id} source is stale")
 
     for region_id in used_regions:
@@ -214,7 +214,7 @@ def test_html_embedded_source_regions_are_current():
 @pytest.mark.parametrize("path", DECODER_HTMLS, ids=lambda path: path.stem)
 def test_html_linked_snippets_are_exact_and_statically_highlighted(path):
     """Source excerpts must work with JavaScript disabled and never drift."""
-    document = path.read_text()
+    document = path.read_text(encoding="utf-8")
     payload_match = re.search(
         r'<script id="decoder-source-data" type="application/json">'
         r'(.*?)</script>', document, re.DOTALL)
@@ -270,7 +270,7 @@ def test_html_linked_snippets_are_exact_and_statically_highlighted(path):
 @pytest.mark.parametrize("path", DECODER_KERNELS, ids=lambda p: p.stem)
 def test_explainer_cuda_functions_are_commented(path):
     """Every CUDA entry point shown in the source panel needs a clear purpose."""
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     lines = text.splitlines()
     missing_cuda = []
     for index, line in enumerate(lines):
