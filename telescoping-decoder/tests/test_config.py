@@ -18,7 +18,7 @@ PKG = Path(__file__).resolve().parent.parent / "telescoping_decoder"
 
 def _cfg_reads(module_name: str) -> set:
     """Every attribute read off a `cfg` object in the given module."""
-    src = (PKG / module_name).read_text()
+    src = (PKG / module_name).read_text(encoding="utf-8")
     attrs = set(re.findall(r"\bcfg(?:_obj)?\.([A-Za-z_][A-Za-z0-9_]*)", src))
     # getattr(cfg, "name", default) reads too
     attrs |= set(re.findall(
