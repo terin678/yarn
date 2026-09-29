@@ -26,7 +26,7 @@ It is organized as follows:
 yarn/
 ├── sqetch/                    # GPU distance estimator (pip-installable package)
 ├── code_search/               # LP CSS code search toolkit
-├── processor_codes/           # the finalized code suite: check matrices + gadgets
+├── processor_codes/           # the finalized code suite: check matrices + gadgets + hook free schedules
 ├── scq_hardware_layouts_HAL/  # superconducting chip layouts for the mitten codes
 ├── SE_cycle_movies/           # atom-array syndrome-extraction animations
 └── telescoping-decoder/       # staged circuit-level decoder with GPU and CPU stages
@@ -75,12 +75,17 @@ how we implemented the CUDA kernels for the GPU stages can be found [here.](tele
   [`scq_hardware_layouts_HAL/README.md`](scq_hardware_layouts_HAL/README.md).
 - **[`SE_cycle_movies/`](SE_cycle_movies/)** — animations of full
   syndrome-extraction cycles for the mitten and structured-mitten codes on
-  atom-array layouts (2-AOD, and pipelined 4-AOD).
+  atom-array layouts (2-AOD, and pipelined 4-AOD). The clock and all quoted
+  SE-cycle times are computed for the physical layout, in which the five data
+  blocks sit edge to edge on a 12 µm lattice; for readability the movies draw
+  each block on its own plate with a visual gap between plates (and parked
+  checks slightly further out), so moves that cross a block boundary appear
+  to cover more distance on screen than the atoms physically travel.
   
 One full 2-AOD syndrome-extraction cycle with 2 pairs of AODs for the [[150,30,10]] mitten code
 (C₅×S₃):
 
-https://github.com/user-attachments/assets/e844187e-8fb5-42e9-af6d-c1ea727fedb3
+https://github.com/user-attachments/assets/455693cb-1e68-4e9d-8fdb-6ecff9780147
 
 ## AI Acknowledgment and Usage
 
