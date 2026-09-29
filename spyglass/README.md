@@ -31,11 +31,14 @@ decode returns its own cost profile.
 
 The decoder consumes a parity-check matrix and per-mechanism priors
 (`DecodingProblem`). Code-capacity noise helpers are included; decoding
-the two CSS directions is the caller's composition. **Circuit-level
-detector error models are out of scope here** because the upstream
-release does not ship measurement schedules; the interface is
-deliberately DEM-ready (a detector error model is just a different
-`(H, priors)` pair), so nothing structural changes when one exists.
+the two CSS directions is the caller's composition. A circuit-level
+detector error model enters the same way, as a different `(H, priors)`
+pair. The batched BP stages use a padded dense message layout sized by
+the maximum check degree, which is cheap at code-capacity degrees and
+expensive at detector-error-model density, where one detector can touch
+hundreds of error mechanisms. For circuit-level decoding at scale, use a
+sparse-layout decoder such as the `telescoping-decoder` package in this
+repository.
 
 ## Install
 
